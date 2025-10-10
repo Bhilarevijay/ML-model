@@ -1,22 +1,17 @@
-# --- Core Data Science & ML Libraries ---
-pandas==2.2.2
-numpy==1.26.4
-scikit-learn==1.5.0
-
-# --- Advanced Machine Learning (The Powerhouse Engine) ---
-lightgbm==4.3.0
-optuna==3.6.1
-
-# --- Deep Learning & NLP (The Refinement Engine) ---
-tensorflow==2.16.1
-sentence-transformers==3.0.1
-transformers==4.41.2  # Often a dependency for sentence-transformers
-
-# --- Web Application & Visualization ---
-streamlit==1.35.0
-folium==0.17.0
-streamlit-folium==0.19.2
-
-# --- Model Persistence & Utility ---
-joblib==1.4.2
-tqdm==4.66.4 # Used by the dataset generator
+streamlit
+pandas
+folium
+streamlit-folium
+numpy
+scikit-learn
+sentence-transformers
+transformers
+torch
+torchvision
+torchaudio
+gdown
+h5py
+lightgbm
+optuna
+joblib
+tqdm
