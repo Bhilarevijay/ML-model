@@ -1,11 +1,23 @@
 import streamlit as st
 import pandas as pd
+from download import download_and_extract_data
 import folium
 from streamlit_folium import st_folium
 import os
 import numpy as np
 from sklearn.cluster import KMeans
 from datetime import datetime
+
+# Run the download function at the start of the app
+download_and_extract_data()
+
+# Define the file paths
+DATASET_PATH = "sachet_main_cases_2M.csv"
+CITIES_DATA_PATH = "worldcities.csv"
+
+# Load the data after ensuring it's downloaded
+df = pd.read_csv(DATASET_PATH, usecols=...) # The rest of the line is the same
+cities_df = pd.read_csv(CITIES_DATA_PATH)
 
 # --- Imports and Initial Error Checking ---
 # This block ensures the app provides a helpful error if models haven't been trained
@@ -22,18 +34,18 @@ except Exception as e:
 
 # --- Configuration ---
 RANDOM_SEED = 42
-DATASET_PATH = "sachet_main_cases_2M.csv" # Ensure this points to the generated dataset
+# DATASET_PATH = "sachet_main_cases_2M.csv" # Ensure this points to the generated dataset
 
 st.set_page_config(page_title="Sachet: Advanced Alert System", layout="wide")
 st.title("🔔 Sachet: Advanced Predictive Alert System")
 
-@st.cache_data
-def load_data(path):
-    """Loads historical case data for generating secondary hotspots."""
-    if os.path.exists(path):
-        # Load only necessary columns for efficiency
-        return pd.read_csv(path, usecols=['case_id', 'abduction_time', 'abductor_relation', 'region_type', 'recovered', 'recovery_latitude', 'recovery_longitude'])
-    return None
+# @st.cache_data
+# def load_data(path):
+#     """Loads historical case data for generating secondary hotspots."""
+#     if os.path.exists(path):
+#         # Load only necessary columns for efficiency
+#         return pd.read_csv(path, usecols=['case_id', 'abduction_time', 'abductor_relation', 'region_type', 'recovered', 'recovery_latitude', 'recovery_longitude'])
+#     return None
 
 df = load_data(DATASET_PATH)
 if df is None:
