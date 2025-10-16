@@ -15,3 +15,6 @@ lightgbm
 optuna
 joblib
 tqdm
+requests
+shapely
+geopandas
