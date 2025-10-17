@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from download import download_and_extract_data
+from download import download_data_from_drive
 import folium
 from streamlit_folium import st_folium
 import os
