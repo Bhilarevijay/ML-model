@@ -1,5 +1,19 @@
 import streamlit as st
 import pandas as pd
+
+# --- DEFINITIVE FIX: Import and run the downloader at the very beginning ---
+# This ensures data files exist before any other library tries to access them.
+try:
+    from download import download_required_files
+    download_required_files()
+except ImportError:
+    st.error("FATAL ERROR: `download.py` not found. Please ensure the file is in the same directory.")
+    st.stop()
+except Exception as e:
+    st.error(f"FATAL ERROR during data download: {e}")
+    st.stop()
+# --- END FIX ---
+
 import folium
 from streamlit_folium import st_folium
 import os
@@ -7,7 +21,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from datetime import datetime
 
-# --- IMPORTS AND INITIAL ERROR CHECKING ---
+# --- Imports and Initial Error Checking ---
 try:
     from predictor import predict_initial_case, refine_location_with_sightings, haversine
 except ImportError:
@@ -17,7 +31,7 @@ except Exception as e:
     st.error(f"FATAL ERROR on startup: Could not load models from predictor.py. Have you run train.py successfully? Details: {e}")
     st.stop()
 
-# --- CONFIGURATION ---
+# --- Configuration ---
 RANDOM_SEED = 42
 DATASET_PATH = "sachet_main_cases_2M.csv"
 CITIES_DATA_PATH = "worldcities.csv"
@@ -32,15 +46,15 @@ def load_data(path, usecols=None):
         return pd.read_csv(path, usecols=usecols)
     return None
 
-# Load all necessary data at the beginning
+# Load all necessary data
 df = load_data(DATASET_PATH, usecols=['abduction_time','abductor_relation','region_type','recovered','recovery_latitude','recovery_longitude'])
 cities_df = load_data(CITIES_DATA_PATH)
 
 if df is None or cities_df is None:
-    st.error(f"FATAL ERROR: A required dataset was not found. Ensure '{DATASET_PATH}' and '{CITIES_DATA_PATH}' exist.")
+    st.error(f"FATAL ERROR: A required dataset was not found, even after attempting download. Please check file names and download script.")
     st.stop()
 
-# --- DYNAMICALLY CREATE CITY CENTERS LIST ---
+# --- Dynamically create CITY_CENTERS from the loaded cities data ---
 try:
     major_cities = cities_df[cities_df['population'] > 500000]
     CITY_CENTERS = {row['city']: (row['lat'], row['lng']) for index, row in major_cities.iterrows()}
@@ -50,30 +64,30 @@ except Exception as e:
     CITY_CENTERS = {"Mumbai": (19.0761, 72.8775)} # Fallback
     HIGHWAY_NETWORK = {}
 
-# --- INITIALIZE SESSION STATE ---
+# --- Initialize Session State ---
 if 'prediction' not in st.session_state: st.session_state.prediction = None
 if 'sightings' not in st.session_state: st.session_state.sightings = []
 if 'refined_location' not in st.session_state: st.session_state.refined_location = None
 if 'initial_case_input' not in st.session_state: st.session_state.initial_case_input = None
 if 'map_key' not in st.session_state: st.session_state.map_key = 'initial_map'
 
-# --- SIDEBAR: CASE INPUT ---
+# --- Sidebar: Case Input ---
 st.sidebar.header("Enter Case Details")
-age=st.sidebar.slider("Child Age", 1, 18, 9, key="age")
-gender=st.sidebar.selectbox("Child Gender", ["M", "F"], key="gender")
-hour=st.sidebar.slider("Abduction Time (24h format)", 0, 23, 17, key="hour")
-dow=st.sidebar.slider("Day of Week (0=Mon, 6=Sun)", 0, 6, 4, key="dow")
+age = st.sidebar.slider("Child Age", 1, 18, 9, key="age")
+gender = st.sidebar.selectbox("Child Gender", ["M", "F"], key="gender")
+hour = st.sidebar.slider("Abduction Time (24h format)", 0, 23, 17, key="hour")
+dow = st.sidebar.slider("Day of Week (0=Mon, 6=Sun)", 0, 6, 4, key="dow")
 st.sidebar.subheader("Location & Context")
-lat=st.sidebar.number_input("Last Seen Latitude", value=19.0760, format="%.4f", key="lat")
-lon=st.sidebar.number_input("Last Seen Longitude", value=72.8777, format="%.4f", key="lon")
-region_type=st.sidebar.selectbox("Region Type", df['region_type'].unique(), key="region")
-pop_density=st.sidebar.number_input("Population Density", value=20000, min_value=10, key="pop")
-transport_hub=st.sidebar.selectbox("Major Transport Hub Nearby?", [1, 0], format_func=lambda x: 'Yes' if x==1 else 'No', key="hub")
+lat = st.sidebar.number_input("Last Seen Latitude", value=19.0760, format="%.4f", key="lat")
+lon = st.sidebar.number_input("Last Seen Longitude", value=72.8777, format="%.4f", key="lon")
+region_type = st.sidebar.selectbox("Region Type", df['region_type'].unique(), key="region")
+pop_density = st.sidebar.number_input("Population Density", value=20000, min_value=10, key="pop")
+transport_hub = st.sidebar.selectbox("Major Transport Hub Nearby?", [1, 0], format_func=lambda x: 'Yes' if x==1 else 'No', key="hub")
 st.sidebar.subheader("Abductor Information")
-relation=st.sidebar.selectbox("Abductor Relation", df['abductor_relation'].unique(), key="relation")
+relation = st.sidebar.selectbox("Abductor Relation", df['abductor_relation'].unique(), key="relation")
 
 if st.sidebar.button("Predict Initial Case", type="primary", use_container_width=True):
-    case_input={'child_age':age, 'gender':gender, 'abduction_time':hour, 'abductor_relation':relation, 'latitude':lat, 'longitude':lon, 'day_of_week':dow, 'region_type':region_type, 'population_density':pop_density, 'transport_hub_nearby':transport_hub}
+    case_input = {'child_age':age,'child_gender':gender,'abduction_time':hour,'abductor_relation':relation,'latitude':lat,'longitude':lon,'day_of_week':dow,'region_type':region_type,'population_density':pop_density,'transport_hub_nearby':transport_hub}
     case_input['dist_to_nearest_city'] = min([haversine(lat, lon, c_lat, c_lon) for c_lat, c_lon in CITY_CENTERS.values()])
     with st.spinner("Running initial prediction using Stage 1 AI..."):
         st.session_state.initial_case_input = case_input
@@ -81,46 +95,32 @@ if st.sidebar.button("Predict Initial Case", type="primary", use_container_width
         st.session_state.sightings = []
         st.session_state.refined_location = None
         st.session_state.start_time = datetime.now()
-        # Set default values for sighting widgets
+        # Set default values for sighting widgets using their unique keys
         st.session_state.s_lat_input = lat + np.random.uniform(-0.5, 0.5)
         st.session_state.s_lon_input = lon + np.random.uniform(-0.5, 0.5)
         st.session_state.s_hours_input = 5.0
         st.session_state.s_text_input = "heading towards highway"
         st.session_state.map_key = f'map_{datetime.now().timestamp()}'
 
-# --- SIDEBAR: LIVE SIGHTINGS ---
+# --- Sidebar: Live Sightings ---
 st.sidebar.subheader("Live Sightings Management")
-if st.session_state.prediction and st.session_state.prediction.get('recovered_label') == 1:
+if st.session_state.prediction:
     st.sidebar.number_input("Sighting Latitude", format="%.4f", key="s_lat_input")
     st.sidebar.number_input("Sighting Longitude", format="%.4f", key="s_lon_input")
     st.sidebar.text_input("Direction Description", key="s_text_input")
     st.sidebar.number_input("Hours Since Abduction", min_value=0.1, step=0.5, format="%.1f", key="s_hours_input")
-
     if st.sidebar.button("Add Sighting"):
-        # Anomaly Detector
-        time_delta_hrs = st.session_state.s_hours_input
-        if st.session_state.sightings:
-            last_sighting = st.session_state.sightings[-1]
-            dist_km = haversine(last_sighting['lat'], last_sighting['lon'], st.session_state.s_lat_input, st.session_state.s_lon_input)
-            time_diff = time_delta_hrs - last_sighting['hours_since']
-            if time_diff > 0.1: # Avoid division by zero
-                speed_kmh = dist_km / time_diff
-                if speed_kmh > 200:
-                    st.sidebar.warning(f"High Speed Alert: Sighting implies travel at ~{int(speed_kmh)} km/h.")
-
-        st.session_state.sightings.append({'lat': st.session_state.s_lat_input, 'lon': st.session_state.s_lon_input, 'direction_text': st.session_state.s_text_input, 'hours_since': st.session_state.s_hours_input})
-        st.session_state.sightings.sort(key=lambda x: x['hours_since']) # Keep sightings in chronological order
+        st.session_state.sightings.append({'lat':st.session_state.s_lat_input, 'lon':st.session_state.s_lon_input, 'direction_text':st.session_state.s_text_input, 'hours_since':st.session_state.s_hours_input})
+        st.session_state.sightings.sort(key=lambda x: x['hours_since'])
         st.sidebar.success("Sighting added!")
         st.session_state.map_key = f'map_{datetime.now().timestamp()}'
 else:
-    st.sidebar.warning("Predict a case first. Refinement is disabled if recovery probability is low.")
+    st.sidebar.warning("Predict a case first to add sightings.")
 
-# --- MAIN APP LAYOUT ---
+# --- Main App Layout ---
 if st.session_state.prediction:
-    pred = st.session_state.prediction
-    risk_map={0:"Low", 1:"Medium", 2:"High"}; alert_map={0:"Internal Monitoring", 1:"Local Alert", 2:"State-Wide Alert (Amber)"}; color_map={0:"green", 1:"orange", 2:"red"}
-
-    st.header("🚨 Prediction Results"); col1,col2=st.columns(2); col1.metric("Risk Level", f"{risk_map.get(pred['risk_label'])} Risk",f"Confidence: {pred['risk_prob']:.1%}"); col2.metric("Recommended Alert",alert_map.get(pred['risk_label']))
+    pred=st.session_state.prediction; risk_map={0:"Low",1:"Medium",2:"High"}; alert_map={0:"Internal",1:"Local Alert",2:"Amber Alert"}; color_map={0:"green",1:"orange",2:"red"}
+    st.header("🚨 Prediction Results"); col1,col2=st.columns(2); col1.metric("Risk Level", f"{risk_map.get(pred['risk_label'])} Risk", f"Confidence: {pred['risk_prob']:.1%}"); col2.metric("Recommended Alert", alert_map.get(pred['risk_label']))
     st.subheader("Recovery Prediction"); colA,colB=st.columns(2); colA.metric("Probability of Recovery", f"{pred['recovered_prob']:.1%}"); colB.metric("Est. Recovery Time", f"~{int(pred['recovery_time_hours'])} hours" if pred['recovery_time_hours']>0 else "N/A")
     st.subheader("📍 Predictive Location Analysis")
     
@@ -132,18 +132,17 @@ if st.session_state.prediction:
         st.info(f"{len(st.session_state.sightings)} sighting(s) logged. Use the button below to incorporate them.")
         sighting_points = []
         for s in st.session_state.sightings:
-            folium.Marker([s['lat'],s['lon']], icon=folium.Icon(color='orange',icon='eye-open',prefix='fa')).add_to(m)
+            folium.Marker([s['lat'],s['lon']], icon=folium.Icon(color='orange', icon='eye-open', prefix='fa')).add_to(m)
             sighting_points.append((s['lat'], s['lon']))
         if len(sighting_points) > 1:
             folium.PolyLine(sighting_points, color="orange", weight=2.5, opacity=0.8).add_to(m)
 
         if st.button("Refine Prediction with Live Sightings"):
             with st.spinner("Running Stage 2 AI (Deep Learning Trajectory Engine)..."):
-                r_lat,r_lon=refine_location_with_sightings(pred,st.session_state.sightings,st.session_state.initial_case_input)
-                st.session_state.refined_location=(r_lat,r_lon)
+                r_lat,r_lon = refine_location_with_sightings(pred, st.session_state.sightings, st.session_state.initial_case_input)
+                st.session_state.refined_location = (r_lat, r_lon)
                 st.session_state.map_key = f'map_{datetime.now().timestamp()}'
-    
-    # --- Primary and Secondary Hotspot Display ---
+
     p_lat=st.session_state.refined_location[0] if st.session_state.refined_location else pred['predicted_latitude']
     p_lon=st.session_state.refined_location[1] if st.session_state.refined_location else pred['predicted_longitude']
     
@@ -151,43 +150,37 @@ if st.session_state.prediction:
     else: p_popup="INITIAL Primary Location";p_icon_color="red";p_icon="star";p_prefix='fa'
     
     if p_lat!=0:
-        folium.Marker([p_lat,p_lon],popup=p_popup,icon=folium.Icon(color=p_icon_color,icon=p_icon,prefix=p_prefix)).add_to(m)
-        radius_m=max(500,15000*(1-pred['recovered_prob']));folium.Circle(radius=radius_m,location=[p_lat,p_lon],color=p_icon_color,fill=True,fill_opacity=0.15).add_to(m)
-    
+        folium.Marker([p_lat, p_lon], popup=p_popup, icon=folium.Icon(color=p_icon_color, icon=p_icon, prefix=p_prefix)).add_to(m)
+        radius_m = max(500, 15000 * (1 - pred['recovered_prob'])); folium.Circle(radius=radius_m, location=[p_lat, p_lon], color=p_icon_color, fill=True, fill_opacity=0.15).add_to(m)
+
     st.markdown("---"); st.markdown("**Analytical Context & Secondary Areas:**")
-    last_sighting_text=st.session_state.sightings[-1]['direction_text'].lower() if st.session_state.sightings else ""
+    last_sighting_text = st.session_state.sightings[-1]['direction_text'].lower() if st.session_state.sightings else ""
     highway_found = None
     for highway in HIGHWAY_NETWORK:
         if highway.lower() in last_sighting_text: highway_found = highway; break
-    
     if highway_found:
         connected_cities = HIGHWAY_NETWORK[highway_found]
-        st.info(f"**Split Futures Analysis:** Last sighting mentions '{highway_found}'. This highway connects {', '.join(connected_cities)}. Generating secondary search areas near these hubs.")
+        st.info(f"**Split Futures Analysis:** Sighting mentions '{highway_found}'. This connects {', '.join(connected_cities)}. Generating areas near these hubs.")
         for city_name in connected_cities:
-            if city_name in CITY_CENTERS:
-                city_lat, city_lon = CITY_CENTERS[city_name]
-                folium.Circle(radius=25000,location=[city_lat, city_lon], color='green', fill=True, fill_opacity=0.1, popup=f"Secondary Area: {city_name} Hub").add_to(m)
+            if city_name in CITY_CENTERS: folium.Circle(radius=25000, location=CITY_CENTERS[city_name], color='green', fill=True, fill_opacity=0.1, popup=f"Secondary Area: {city_name} Hub").add_to(m)
     else:
-        st.info("No specific highway detected in last sighting. Showing general historical clusters based on last known location.")
-        recovered_df=df[df['recovered']==1].dropna(subset=['recovery_latitude']);
-        time_mask=(recovered_df['abduction_time'].between(hour-2,hour+2)); context_mask=(recovered_df['abductor_relation']==relation)&(recovered_df['region_type']==region_type);
-        similar_cases=recovered_df[time_mask&context_mask].copy()
+        st.info("No highway detected. Showing general historical clusters based on last known location.")
+        recovered_df = df[df['recovered']==1].dropna(subset=['recovery_latitude'])
+        time_mask=(recovered_df['abduction_time'].between(hour-2, hour+2)); context_mask=(recovered_df['abductor_relation']==relation)&(recovered_df['region_type']==region_type)
+        similar_cases=recovered_df[time_mask & context_mask].copy()
         if not similar_cases.empty:
-            anchor_lat=st.session_state.sightings[-1]['lat'] if st.session_state.sightings else lat
-            anchor_lon=st.session_state.sightings[-1]['lon'] if st.session_state.sightings else lon
-            distances=haversine(anchor_lat,anchor_lon,similar_cases['recovery_latitude'],similar_cases['recovery_longitude'])
-            relevant_cases=similar_cases[distances<150]
-            if len(relevant_cases)>=10:
-                coords=relevant_cases[['recovery_latitude','recovery_longitude']].values;k=max(1,min(4,len(relevant_cases)//20));kmeans=KMeans(n_clusters=k,n_init='auto',random_state=RANDOM_SEED).fit(coords)
+            anchor_lat=st.session_state.sightings[-1]['lat'] if st.session_state.sightings else lat; anchor_lon=st.session_state.sightings[-1]['lon'] if st.session_state.sightings else lon
+            distances=haversine(anchor_lat, anchor_lon, similar_cases['recovery_latitude'], similar_cases['recovery_longitude'])
+            relevant_cases=similar_cases[distances < 150]
+            if len(relevant_cases) >= 10:
+                coords=relevant_cases[['recovery_latitude','recovery_longitude']].values;k=max(1, min(4, len(relevant_cases)//20)); kmeans=KMeans(n_clusters=k,n_init='auto',random_state=RANDOM_SEED).fit(coords)
                 for i in range(k):
-                    center_lat,center_lon=kmeans.cluster_centers_[i]
-                    folium.Circle(radius=10000,location=[center_lat,center_lon],color=color_map.get(pred['risk_label']),fill=True,fill_opacity=0.1,popup=f"Secondary Hotspot {i+1}").add_to(m)
+                    center_lat,center_lon=kmeans.cluster_centers_[i]; folium.Circle(radius=10000,location=[center_lat,center_lon],color=color_map.get(pred['risk_label']),fill=True,fill_opacity=0.1,popup=f"Secondary Area {i+1}").add_to(m)
     
-    st_folium(m,key=st.session_state.map_key,width=1200,height=600)
+    st_folium(m, key=st.session_state.map_key, width=1200, height=600)
 
 else:
     st.info("Enter case details in the sidebar and click 'Predict Initial Case' to begin.")
-
 
 
 
