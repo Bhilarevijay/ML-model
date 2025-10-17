@@ -16,7 +16,8 @@ DATASET_PATH = "sachet_main_cases_2M.csv"
 CITIES_DATA_PATH = "worldcities.csv"
 
 # Load the data after ensuring it's downloaded
-df = pd.read_csv(DATASET_PATH, usecols=...) # The rest of the line is the same
+df = pd.read_csv(DATASET_PATH, usecols=columns) # The rest of the line is the same
+# df = load_data(DATASET_PATH, columns=['abduction_time','abductor_relation','region_type','recovered','recovery_latitude','recovery_longitude'])
 cities_df = pd.read_csv(CITIES_DATA_PATH)
 
 # --- Imports and Initial Error Checking ---
@@ -47,7 +48,8 @@ st.title("🔔 Sachet: Advanced Predictive Alert System")
 #         return pd.read_csv(path, usecols=['case_id', 'abduction_time', 'abductor_relation', 'region_type', 'recovered', 'recovery_latitude', 'recovery_longitude'])
 #     return None
 
-df = load_data(DATASET_PATH)
+# df = load_data(DATASET_PATH)
+df = load_data(DATASET_PATH, columns=['abduction_time','abductor_relation','region_type','recovered','recovery_latitude','recovery_longitude'])
 if df is None:
     st.error(f"FATAL ERROR: Dataset '{DATASET_PATH}' not found. Please run your data generator script first.")
     st.stop()
