@@ -9,7 +9,7 @@ from sklearn.cluster import KMeans
 from datetime import datetime
 
 # Run the download function at the start of the app
-download_and_extract_data()
+download_data_from_drive()
 
 # Define the file paths
 DATASET_PATH = "sachet_main_cases_2M.csv"
