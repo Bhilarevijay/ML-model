@@ -15,6 +15,8 @@ download_data_from_drive()
 DATASET_PATH = "sachet_main_cases_2M.csv"
 CITIES_DATA_PATH = "worldcities.csv"
 
+
+columns=['abduction_time','abductor_relation','region_type','recovered','recovery_latitude','recovery_longitude']
 # Load the data after ensuring it's downloaded
 df = pd.read_csv(DATASET_PATH, usecols=columns) # The rest of the line is the same
 # df = load_data(DATASET_PATH, columns=['abduction_time','abductor_relation','region_type','recovered','recovery_latitude','recovery_longitude'])
