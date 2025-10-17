@@ -80,43 +80,48 @@
 
 
 
-
-
 import gdown
 import os
 import streamlit as st
 
 @st.cache_resource
-def download_and_extract_data():
+def download_data_from_drive():
     """
-    The definitive and robust function to download files from a Google Drive folder.
+    The definitive and robust function to download the CONTENTS of a Google Drive folder.
     Uses the industry-standard 'gdown' library.
+    This version does NOT expect a zip file.
     """
-    # --- THIS IS THE ONLY PART YOU NEED TO EDIT ---
+    # --- THIS IS THE FINAL, CORRECT CONFIGURATION ---
     # The shareable link to the FOLDER containing your two CSV files.
     folder_url = 'https://drive.google.com/drive/folders/10Hwb8Ry0dshr9oVawCUyyO1xhBE9tsTT?usp=sharing'
     # -----------------------------------------------
 
+    # The two files we expect to find after the download.
     cases_csv = 'sachet_main_cases_2M.csv'
     sightings_csv = 'sachet_sightings_log_2M.csv'
     
-    # Check if BOTH files already exist. If not, download the folder.
+    # Check if BOTH files already exist locally in the Render instance.
     if not (os.path.exists(cases_csv) and os.path.exists(sightings_csv)):
-        with st.spinner(f"Downloading required data files (~300MB)... This is a one-time setup."):
+        with st.spinner(f"Downloading required data files (~700MB)... This is a one-time setup on the server and will take a few minutes."):
             try:
-                print(f"Data files not found. Downloading folder from: {folder_url}")
-                # This command tells gdown to download all files from the folder into the current directory
-                gdown.download_folder(folder_url, quiet=False, use_cookies=False)
+                print(f"Data files not found. Downloading all files from folder: {folder_url}")
+                
+                # --- THE DEFINITIVE FIX ---
+                # This command tells gdown to download all files from the folder URL
+                # directly into the current directory. No zipping involved.
+                gdown.download_folder(id=folder_url, quiet=False, use_cookies=False)
                 
                 # Verify that the download was successful
                 if not (os.path.exists(cases_csv) and os.path.exists(sightings_csv)):
-                    st.error("FATAL ERROR: Download seemed to complete, but the required CSV files are still missing. Please check your Google Drive folder's sharing permissions. It must be set to 'Anyone with the link'.")
+                    st.error("FATAL ERROR: Download seemed to complete, but the required CSV files are still missing.")
+                    st.error("Please double-check your Google Drive folder's sharing permissions. It MUST be set to 'Anyone with the link'.")
                     st.stop()
                     
-                print("Download and extraction complete. Files are ready.")
+                print("Download complete. Data files are ready.")
+
             except Exception as e:
                 st.error(f"FATAL ERROR during data download: {e}")
-                st.error("This may be due to incorrect Google Drive sharing settings or an invalid URL. Please ensure the folder is shared with 'Anyone with the link'.")
+                st.error("This may be due to incorrect Google Drive sharing settings or an invalid URL.")
                 st.stop()
     else:
         print("Data files found locally.")
