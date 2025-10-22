@@ -3,7 +3,7 @@ pandas
 folium
 streamlit-folium
 numpy
-scikit-learn
+scikit-learn==1.7.1
 sentence-transformers
 transformers
 torch
