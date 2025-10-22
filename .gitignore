@@ -1,0 +1,23 @@
+# Python virtual environment
+/myenv/
+
+# Large data files
+*.csv
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.h5
+
+# Model directories
+models_lgbm_tuned/
+models_refinement_pytorch/
+
+# Pre-processed data
+preprocessed_for_pytorch_hdf5/
+
+# IDE and OS files
+.vscode/
+__pycache__/
+*.pyc
